@@ -7,7 +7,6 @@ import java.io.OutputStream;
 import java.util.Iterator;
 import java.util.List;
 
-import android.app.ActionBar;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -27,6 +26,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+@SuppressWarnings("deprecation")
 public class MainActivity extends Activity implements SurfaceHolder.Callback,
 		Camera.PictureCallback {
 
@@ -45,16 +45,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 	long counter = 0;
 	int regionDifference;
 	int imageCount = 1;
+//	For speed purposes, we make sure we check every 5-th frame
+	int frame_process;
 
 	String imagePath;
 	File imageFile;
 	Uri imageFileUri;
-	
+
 	String videoPath;
 	File videoFile;
 	Uri VideoFileUri;
-	
-	
+
 	final static int REQUEST_VIDEO_CAPTURED = 1;
 
 	// Intentul de pornire a aplicatiei implicite de captura
@@ -100,7 +101,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 
 		// last captured image preview
 		imageView = (ImageView) findViewById(R.id.ImageView);
-		
+
 		counter = 0;
 		regionDifference = 0;
 		isWorking = false;
@@ -155,9 +156,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 				counter = 0;
 				imageView.setImageResource(android.R.color.transparent);
 			}
+//			Reset the frame process counter. 
+			frame_process = 0;
 		}
 	};
 
+	@SuppressWarnings("deprecation")
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
 		// locul unde se intampla toata magia prelucrarii
@@ -176,20 +180,21 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 				if (isWorking) {
 					if (oldData == null) {
 						oldData = data;
+						Log.d("Program", "Begin");
 					} else {
 						regionDifference = 0;
-						for (int i = 0; i < data.length; i++)
+						for (int i = 0; i < data.length; i+=1)
 							if (oldData[i] != data[i])
 								regionDifference++;
-
+												
 						// regionalDifference este variabila care numara cati
 						// biti difera
 						// implicit este setata sa recunoasca miscare daca 1/2
 						// din bitii frame-ului curent difera in raport cu
 						// frame-ul precedent.
 						if (regionDifference > (int) data.length / 2) {
-							Log.d("onPreviewFrame-surfaceChanged",
-									"motion detected");
+							Log.d("Motion",
+									"Detected");
 							// updateaza status-ul
 							txtView_Results
 									.setText("Oh wait .. MOTION DETECTED !!");
@@ -198,21 +203,23 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 							// daca miscarea se intampla pe durata unui timp >
 							// counter
 							// alertam user-ul.
-							if (counter > 10) {
+							if (counter > 20) {
 								String number = "+40725453248";
-								String message = "!!! Motion detected!!!";
+								String message = "!!! Motion detected !!!";
 
 								txtView_Results
 										.setText("Go get the shotGun !!");
 
 								// trimitem mesaj
-								android.telephony.SmsManager.getDefault()
-										.sendTextMessage(number, null, message,
-												null, null);
+//								android.telephony.SmsManager.getDefault()
+//										.sendTextMessage(number, null, message,
+//												null, null);
 
 								// facem si o poza, sa avem amintire
 								camera.takePicture(null, null, picCallBack);
 								counter = 0;
+								frame_process = 0;
+								Log.d("Motion reset", String.valueOf(counter));
 							}
 
 						} else {
@@ -227,7 +234,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 						// curent,
 						// inainte de schimbarea acestuia
 						oldData = data;
-						Log.d("counter", String.valueOf(counter));
+						Log.d("Motion counter", String.valueOf(counter));
 					}
 				}
 			}
@@ -240,6 +247,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 	int bestWidth = 0;
 	int bestHeight = 0;
 
+	@SuppressWarnings("deprecation")
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
 		// detectam cea mai mare rezolutie posibila a camerei
@@ -277,6 +285,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 		camera.startPreview();
 	}
 
+	@SuppressWarnings("deprecation")
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
 		// TODO Auto-generated method stub
@@ -284,8 +293,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 		camera.release();
 	}
 
+	@SuppressWarnings("deprecation")
 	@Override
-	public void onPictureTaken(byte[] data, Camera camera) {
+	public void onPictureTaken(byte[] data, @SuppressWarnings("deprecation") Camera camera) {
 
 		// setam directorul unde salvam snapshot-urile
 		imagePath = Environment.getExternalStorageDirectory().getPath()

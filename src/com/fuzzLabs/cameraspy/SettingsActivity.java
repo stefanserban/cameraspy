@@ -1,7 +1,5 @@
 package com.fuzzLabs.cameraspy;
 
-import com.fuzzLabs.cameraspy.R.string;
-
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
@@ -25,10 +23,10 @@ public class SettingsActivity extends Activity {
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.settings_layout);
-		
-		btnBack = (Button)findViewById(R.id.button_back);
+
+		btnBack = (Button) findViewById(R.id.button_back);
 		btnBack.setOnClickListener(new View.OnClickListener() {
-			
+
 			@Override
 			public void onClick(View v) {
 				// TODO Auto-generated method stub
