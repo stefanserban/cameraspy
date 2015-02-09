@@ -4,9 +4,12 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
+import android.app.ActionBar;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -25,6 +28,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 @SuppressWarnings("deprecation")
 public class MainActivity extends Activity implements SurfaceHolder.Callback,
@@ -40,13 +44,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 	Camera camera;
 	Camera.PictureCallback picCallBack = this;
 
-	boolean isWorking = false;
-	byte[] oldData = null;
-	long counter = 0;
+	boolean isWorking;
+	byte[] oldData;
+	long counter;
 	int regionDifference;
 	int imageCount = 1;
-//	For speed purposes, we make sure we check every 5-th frame
-	int frame_process;
 
 	String imagePath;
 	File imageFile;
@@ -56,52 +58,55 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 	File videoFile;
 	Uri VideoFileUri;
 
-	final static int REQUEST_VIDEO_CAPTURED = 1;
+	// Setari
+	String numar;
+	int fps;
+	String mesaj;
+	int sensibilitate;
+	boolean visited_setup = false;
 
-	// Intentul de pornire a aplicatiei implicite de captura
-	Intent cameraIntent;
+	// Dictionar setari
+	Map<String, Object> params = new HashMap<String, Object>();
+
+	final static int REQUEST_VIDEO_CAPTURED = 1;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.new_layout);
 
-		// Ascunde status-bar-ul pentru API > Android 4.1
-		/*
-		 * View decorView = getWindow().getDecorView(); // Hide the status bar.
-		 * int uiOptions = View.SYSTEM_UI_FLAG_FULLSCREEN;
-		 * decorView.setSystemUiVisibility(uiOptions); // Remember that you
-		 * should never show the action bar if the // status bar is hidden, so
-		 * hide that too if necessary. ActionBar actionBar = getActionBar();
-		 * actionBar.hide();
-		 */
+		// Ascunde status-bar-ul
+		View decorView = getWindow().getDecorView(); // Hide the status bar.
+		int uiOptions = View.SYSTEM_UI_FLAG_FULLSCREEN;
+		decorView.setSystemUiVisibility(uiOptions);
+		ActionBar actionBar = getActionBar();
+		actionBar.hide();
 
-		// camera feed
+		// camerafeed
 		cameraView = (SurfaceView) findViewById(R.id.CameraView);
 		SurfaceHolder surfaceHolder = cameraView.getHolder();
 		surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 		surfaceHolder.addCallback(this);
 
-		// output
+		// rezultat
 		txtView_Results = (TextView) findViewById(R.id.textView_results);
 
-		// seeCaptures button
-		seeCaptures = (Button) findViewById(R.id.button_seeImages);
-
-		// settings button
-		btnSettings = (Button) findViewById(R.id.button_settings);
-		btnSettings.setOnClickListener(settingsDefaultListener);
-
-		// start button
-		btnStart = (Button) findViewById(R.id.button_startus);
-		btnStart.setOnClickListener(startDefaultListener);
-
+		// galerie
 		seeCaptures = (Button) findViewById(R.id.button_seeImages);
 		seeCaptures.setOnClickListener(seeCapturesDefaultListener);
 
-		// last captured image preview
+		// setari
+		btnSettings = (Button) findViewById(R.id.button_settings);
+		btnSettings.setOnClickListener(settingsDefaultListener);
+
+		// start
+		btnStart = (Button) findViewById(R.id.button_startus);
+		btnStart.setOnClickListener(startDefaultListener);
+
+		// ultima miscare
 		imageView = (ImageView) findViewById(R.id.ImageView);
 
+		// variabile
 		counter = 0;
 		regionDifference = 0;
 		isWorking = false;
@@ -112,17 +117,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 		// deschide Galeria pentru a putea accesa pozele facute
 		@Override
 		public void onClick(View v) {
-			Intent viewImage = new Intent(Intent.ACTION_VIEW,
-					Uri.parse("content://media/internal/images/media"));
 
-			/*
-			 * Intent viewImage = new Intent();
-			 * viewImage.setAction(Intent.ACTION_VIEW);
-			 * viewImage.setDataAndType(Uri.fromFile(new
-			 * File(Environment.getExternalStorageDirectory().getPath())),
-			 * "image/*");
-			 */
-
+			Intent viewImage = new Intent();
+			viewImage.setAction(Intent.ACTION_VIEW);
+			imagePath = Environment.getExternalStorageDirectory().getPath()
+					+ "/CameraSPY/temp" + String.valueOf(imageCount) + ".jpg";
+			imageFile = new File(imagePath);
+			imageFileUri = Uri.fromFile(imageFile);
+			viewImage.setDataAndType(imageFileUri, "image/*");
 			startActivity(viewImage);
 		}
 	};
@@ -133,12 +135,27 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 		@Override
 		public void onClick(View v) {
 			// call the Settings View and tweak stuff
-			Intent settingsIntent = new Intent();
-			settingsIntent.setClass(getApplicationContext(),
+			Intent settingsIntent = new Intent(MainActivity.this,
 					SettingsActivity.class);
-			startActivity(settingsIntent);
+			startActivityForResult(settingsIntent, 1);
 		}
 	};
+
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		if (requestCode != 1) {
+			return;
+		}
+
+		if (resultCode == RESULT_OK) {
+
+			params.put("numar", data.getStringExtra("numar"));
+			params.put("fps", data.getStringExtra("fps"));
+			params.put("mesaj", data.getStringExtra("mesaj"));
+			params.put("sensibiltate", data.getStringExtra("sensibiltate"));
+
+			visited_setup = true;
+		}
+	}
 
 	View.OnClickListener startDefaultListener = new View.OnClickListener() {
 
@@ -149,19 +166,31 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 			// TODO Auto-generated method stub
 			isWorking = !isWorking;
 			if (isWorking) {
-				btnStart.setText("Stop");
+				if (visited_setup == false) {
+					Toast alert = Toast.makeText(getApplicationContext(),
+							"Please visit the settings page first",
+							Toast.LENGTH_LONG);
+					alert.show();
+				} else {
+					counter = 0;
+					numar = (String) params.get("numar");
+					fps = Integer.parseInt((String) params.get("fps"));
+					mesaj = (String) params.get("mesaj");
+					sensibilitate = Integer.parseInt((String) params
+							.get("sensibilitate"));
+					sensibilitate = 2;
+					btnStart.setText("Stop");
+				}
+
 			} else {
 				btnStart.setText("Start");
 				txtView_Results.setText("Not running ..");
 				counter = 0;
 				imageView.setImageResource(android.R.color.transparent);
 			}
-//			Reset the frame process counter. 
-			frame_process = 0;
 		}
 	};
 
-	@SuppressWarnings("deprecation")
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
 		// locul unde se intampla toata magia prelucrarii
@@ -177,24 +206,28 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 				// oldData este o variabila menita sa retina frame-ul trecut
 				// pentru a putea face o comparatie intre frame-ul curent si
 				// acesta
+				if (visited_setup == false) {
+					return;
+				}
+
 				if (isWorking) {
 					if (oldData == null) {
 						oldData = data;
 						Log.d("Program", "Begin");
 					} else {
 						regionDifference = 0;
-						for (int i = 0; i < data.length; i+=1)
+						for (int i = 0; i < data.length; i += 1)
 							if (oldData[i] != data[i])
 								regionDifference++;
-												
+
 						// regionalDifference este variabila care numara cati
 						// biti difera
 						// implicit este setata sa recunoasca miscare daca 1/2
 						// din bitii frame-ului curent difera in raport cu
 						// frame-ul precedent.
-						if (regionDifference > (int) data.length / 2) {
-							Log.d("Motion",
-									"Detected");
+						if (regionDifference > (int) data.length
+								/ sensibilitate) {
+							Log.d("Motion", "Detected");
 							// updateaza status-ul
 							txtView_Results
 									.setText("Oh wait .. MOTION DETECTED !!");
@@ -203,22 +236,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 							// daca miscarea se intampla pe durata unui timp >
 							// counter
 							// alertam user-ul.
-							if (counter > 20) {
-								String number = "+40725453248";
-								String message = "!!! Motion detected !!!";
-
-								txtView_Results
-										.setText("Go get the shotGun !!");
+							if (counter > fps) {
+								txtView_Results.setText("We have a winner !!");
 
 								// trimitem mesaj
-//								android.telephony.SmsManager.getDefault()
-//										.sendTextMessage(number, null, message,
-//												null, null);
+								android.telephony.SmsManager.getDefault()
+										.sendTextMessage(numar, null, mesaj,
+												null, null);
 
 								// facem si o poza, sa avem amintire
 								camera.takePicture(null, null, picCallBack);
 								counter = 0;
-								frame_process = 0;
 								Log.d("Motion reset", String.valueOf(counter));
 							}
 
@@ -247,7 +275,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 	int bestWidth = 0;
 	int bestHeight = 0;
 
-	@SuppressWarnings("deprecation")
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
 		// detectam cea mai mare rezolutie posibila a camerei
@@ -285,17 +312,16 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback,
 		camera.startPreview();
 	}
 
-	@SuppressWarnings("deprecation")
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
 		// TODO Auto-generated method stub
 		camera.stopPreview();
+		camera.setPreviewCallback(null);
 		camera.release();
 	}
 
-	@SuppressWarnings("deprecation")
 	@Override
-	public void onPictureTaken(byte[] data, @SuppressWarnings("deprecation") Camera camera) {
+	public void onPictureTaken(byte[] data, Camera camera) {
 
 		// setam directorul unde salvam snapshot-urile
 		imagePath = Environment.getExternalStorageDirectory().getPath()
